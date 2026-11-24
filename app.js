@@ -126,50 +126,34 @@ if ("IntersectionObserver" in window) {
 const musicButton = document.querySelector(".music-button");
 const audioLabel = musicButton.querySelector(".music-label");
 const musicState = musicButton.querySelector(".music-state");
-let audioContext;
-let musicTimer;
-let noteIndex = 0;
-const notes = [261.63, 329.63, 392, 329.63, 293.66, 349.23, 392, 349.23];
+const backgroundMusic = document.querySelector("#background-music");
 
-function playSoftNote() {
-  if (!audioContext || audioContext.state !== "running") return;
-  const now = audioContext.currentTime;
-  const oscillator = audioContext.createOscillator();
-  const gain = audioContext.createGain();
-  oscillator.type = noteIndex % 4 === 0 ? "sine" : "triangle";
-  oscillator.frequency.value = notes[noteIndex % notes.length];
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(0.035, now + 0.09);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 1.25);
-  oscillator.connect(gain);
-  gain.connect(audioContext.destination);
-  oscillator.start(now);
-  oscillator.stop(now + 1.3);
-  noteIndex += 1;
-  musicTimer = window.setTimeout(playSoftNote, 670);
+function setMusicState(isPlaying, status = isPlaying ? "on" : "off") {
+  musicButton.setAttribute("aria-pressed", String(isPlaying));
+  musicButton.setAttribute("aria-label", isPlaying ? "Pause background song" : "Play background song");
+  audioLabel.textContent = "song";
+  musicState.textContent = status;
 }
 
-musicButton.addEventListener("click", async () => {
-  const isPlaying = musicButton.getAttribute("aria-pressed") === "true";
-  if (isPlaying) {
-    window.clearTimeout(musicTimer);
-    await audioContext?.suspend();
-    musicButton.setAttribute("aria-pressed", "false");
-    musicButton.setAttribute("aria-label", "Play the little tune");
-    audioLabel.textContent = "little tune";
-    musicState.textContent = "off";
-    return;
+async function playBackgroundMusic() {
+  try {
+    await backgroundMusic.play();
+    setMusicState(true);
+  } catch (error) {
+    setMusicState(false, error.name === "NotAllowedError" ? "tap" : "off");
   }
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextClass) {
-    showSurprise("This browser can’t play the optional tune, but the note still works just fine.");
-    return;
+}
+
+backgroundMusic.addEventListener("play", () => setMusicState(true));
+backgroundMusic.addEventListener("pause", () => setMusicState(false));
+backgroundMusic.addEventListener("error", () => setMusicState(false, "error"));
+
+musicButton.addEventListener("click", () => {
+  if (backgroundMusic.paused) {
+    playBackgroundMusic();
+  } else {
+    backgroundMusic.pause();
   }
-  audioContext ||= new AudioContextClass();
-  await audioContext.resume();
-  musicButton.setAttribute("aria-pressed", "true");
-  musicButton.setAttribute("aria-label", "Pause the little tune");
-  audioLabel.textContent = "little tune";
-  musicState.textContent = "on";
-  playSoftNote();
 });
+
+playBackgroundMusic();
